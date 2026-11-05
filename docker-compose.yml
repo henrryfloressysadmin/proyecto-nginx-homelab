@@ -20,5 +20,18 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - portainer_data:/data
 
+# Proxy Inverso Centralizado
+  nginx-proxy-manager:
+    image: 'jc21/nginx-proxy-manager:latest'
+    container_name: nginx_proxy_manager
+    restart: always
+    ports:
+      - '80:80'     # Tráfico Web HTTP Estándar
+      - '81:81'     # Panel de Administración de NPM
+      - '443:443'   # Tráfico Web HTTPS Seguro
+    volumes:
+      - ./npm_data:/data
+      - ./npm_letsencrypt:/etc/letsencrypt
+
 volumes:
   portainer_data:
