@@ -62,3 +62,24 @@ docker compose up -d
 
 ## 📊 Próxima Fase: Capa de Observabilidad
 El stack cuenta con las bases listas para acoplar un entorno de monitoreo avanzado utilizando **Prometheus, Grafana y Google cAdvisor**, permitiendo recolectar y visualizar métricas de consumo de CPU, memoria y red de cada contenedor en tiempo real a través de `http://grafana.local`.
+
+## 🛠️ Bitácora de Diagnóstico y Solución de Problemas (Troubleshooting)
+
+Durante el despliegue y hardening (aseguramiento) de esta infraestructura, surgieron retos técnicos reales de comunicación en redes virtuales. A continuación se documenta el diagnóstico y la solución aplicada para cada uno:
+
+### 1. Error de Sintaxis en Redes de Docker Compose (Línea `comment:`)
+*   **Síntoma:** Al ejecutar `docker compose ps` o levantar el entorno, el motor de Docker devolvía el error: `networks.proxy-public additional properties 'comment' not allowed`.
+*   **Causa:** Se intentaron incluir comentarios descriptivos usando la propiedad no soportada `comment` dentro de la especificación nativa del esquema de redes de Docker Compose.
+*   **Diagnóstico:** Inspección directa del esquema con la terminal arrojando error de validación. La red `mgmt-private` no se creaba en el Daemon de Docker (`network not found`).
+*   **Solución:** Se editó el archivo `docker-compose.yml` para remover la propiedad inválida, limpiando la declaración de redes bajo el driver `bridge` estándar y forzando el despliegue limpio.
+
+### 2. Error 502 Bad Gateway en `portainer.local` (Aislamiento Excesivo de Interfaces)
+*   **Síntoma:** Nginx Proxy Manager respondía correctamente, pero al intentar acceder a Portainer devolvía un código de estado HTTP 502.
+*   **Causa:** Por motivos de seguridad nativos de su imagen, el binario de Portainer se inicializó escuchando únicamente sobre la interfaz de bucle invertido local (`127.0.0.1`), bloqueando los reenvíos de red internos del Proxy Inverso.
+*   **Diagnóstico:** Auditoría de logs en tiempo real mediante el comando `docker logs portainer_management`, localizando la línea: `server listening on http://127.0.0.1:9000`.
+*   **Solución:** Se inyectó el parámetro `command` en el servicio de Portainer dentro del archivo Compose: `command: -H unix:///var/run/docker.sock --address 0.0.0.0:9000`. Esto forzó al contenedor a escuchar en todas las interfaces virtuales (`0.0.0.0`), abriendo el pasillo de comunicación seguro con NPM.
+
+### 3. Bloqueo de Inicialización por Expiración de Tiempo (Contador de 5 Minutos)
+*   **Síntoma:** Al refrescar la pantalla tras un intento fallido de contraseña, Portainer mostraba el mensaje: *“Your Portainer instance timed out for security reasons”*.
+*   **Causa:** Portainer implementa un mecanismo de seguridad estricto que cierra la ventana de configuración si el usuario administrador no es creado en los primeros 5 minutos desde su arranque inicial.
+*   **Solución:** Se aplicó un reinicio directo del contenedor desde la terminal del host (`docker compose restart portainer`), restableciendo el temporizador de seguridad y permitiendo la creación exitosa del usuario maestro usando una política de contraseña robusta (mínimo 12 caracteres).
