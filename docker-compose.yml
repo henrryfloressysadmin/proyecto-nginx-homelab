@@ -1,37 +1,44 @@
-
-
 services:
-  web:
-    image: nginx:latest
-    container_name: nginx_homelab
-    ports:
-      - "8880:80"
-    volumes:
-      - ./index.html:/usr/share/nginx/html/index.html
-    restart: always
-
-  portainer:
-    image: portainer/portainer-ce:latest
-    container_name: portainer
-    restart: always
-    ports:
-      - "9000:9000"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - portainer_data:/data
-
-# Proxy Inverso Centralizado
   nginx-proxy-manager:
     image: 'jc21/nginx-proxy-manager:latest'
     container_name: nginx_proxy_manager
-    restart: always
+    restart: unless-stopped
     ports:
-      - '80:80'     # Tráfico Web HTTP Estándar
-      - '81:81'     # Panel de Administración de NPM
-      - '443:443'   # Tráfico Web HTTPS Seguro
+      - '80:80'
+      - '443:443'
+      - '81:81'
     volumes:
-      - ./npm_data:/data
-      - ./npm_letsencrypt:/etc/letsencrypt
+      - ./npm/data:/data
+      - ./npm/letsencrypt:/etc/letsencrypt
+    networks:
+      - red-compartida
+
+  portainer:
+    image: 'portainer/portainer-ce:latest'
+    container_name: portainer_management
+    restart: unless-stopped
+    command: --bind=:9000 --bind-https=:9443
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - portainer_data:/data
+    networks:
+      - red-compartida
+
+  nginx-web:
+    image: 'nginx:alpine'
+    container_name: nginx_landing_page
+    restart: unless-stopped
+    volumes:
+      - ./index.html:/usr/share/nginx/html/index.html:ro
+    networks:
+      - red-compartida
 
 volumes:
   portainer_data:
+    name: portainer_db_data
+
+networks:
+  red-compartida:
+    external: true
+    name: red-publica-shared
+

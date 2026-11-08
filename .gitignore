@@ -1,1 +1,10 @@
 npm_data/
+# Excluir volúmenes locales y datos persistentes generados por Docker
+/npm/
+/prometheus/data/
+*.db
+*.log
+
+# Excluir archivos ocultos de sistemas operativos
+.DS_Store
+Thumbs.db
